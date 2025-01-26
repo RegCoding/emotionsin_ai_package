@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "emotionsinai"
+version = "0.1.0"
+authors = [
+  { name="Gerrit Knippschild", email="gerritknippschild@gmail.com" }
+]
+description = "At Emotionsin.ai, we believe that effective collaboration between AI Agents and humans goes beyond technical expertise. Human interaction is built on social, emotional, and cultural foundations. By enhancing AI Agents with advanced emotional, social, and cultural understanding, we aim to create technology that integrates seamlessly into human contexts, delivering more personal, empathic, and impactful results."
+readme = "README.md"
+keywords = ["aiagents", "llm", "emotions", "empathy"]
+classifiers = [
+    "Programming Language :: Python :: 3"
+]
