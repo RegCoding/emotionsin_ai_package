@@ -1,4 +1,5 @@
 # conversation_repository.py
+from emotionsinai import UserEmotionalProfile 
 
 class ConversationRepository:
     """
@@ -10,6 +11,7 @@ class ConversationRepository:
     """
     def __init__(self):
         self.conversations = {}  # { user_id: [ {role, content, emotion}, ... ] }
+        self.user_profiles = {}  # { user_id: UserEmotionalProfile }
 
     def add_message(self, user_id, role, content, emotion=None):
         if user_id not in self.conversations:
@@ -33,3 +35,9 @@ class ConversationRepository:
         """
         if user_id in self.conversations:
             del self.conversations[user_id]
+
+    # New or updated methods to manage user profiles
+    def get_user_profile(self, user_id) -> UserEmotionalProfile:
+        if user_id not in self.user_profiles:
+            self.user_profiles[user_id] = UserEmotionalProfile()
+        return self.user_profiles[user_id]

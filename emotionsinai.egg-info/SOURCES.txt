@@ -1,0 +1,12 @@
+LICENSE
+README.md
+pyproject.toml
+emotionsinai/__init__.py
+emotionsinai/base_llm.py
+emotionsinai/conversation_repository.py
+emotionsinai/emotion_services.py
+emotionsinai/openai_provider.py
+emotionsinai.egg-info/PKG-INFO
+emotionsinai.egg-info/SOURCES.txt
+emotionsinai.egg-info/dependency_links.txt
+emotionsinai.egg-info/top_level.txt

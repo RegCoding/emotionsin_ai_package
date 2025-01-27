@@ -18,111 +18,6 @@ class EmotionServices:
         # Load empathy parameters
         empathy_parameters = self.load_empathy_parameters(resource_file_path)
         self.context = empathy_parameters.get("context", "")
-        self.motivations = empathy_parameters.get("motivations", [])
-
-
-    def load_empathy_parameters(self, file_path:str="resources.json"):
-        """
-        Load empathy parameters (context and motivations) from a JSON file.
-        
-        :param file_path: Path to the resource file.
-        :return: A dictionary containing context and motivations.
-        """
-        try:
-            with open(file_path, "r") as file:
-                data = json.load(file)
-            return data.get("empathy_parameters", {})
-        except FileNotFoundError:
-            raise RuntimeError(f"Resource file '{file_path}' not found.")
-        except json.JSONDecodeError:
-            raise RuntimeError(f"Resource file '{file_path}' contains invalid JSON.")
-
-    def get_answer(self, user_prompt: str) -> str:
-        """
-        Calls the LLM provider to get a direct response to the user's prompt (string).
-        """
-        return self.llm_provider.send_prompt(user_prompt)
-
-    def get_response_and_emotion(self, user_id: str, user_prompt: str):
-        """
-        1. Retrieve conversation for this user.
-        2. Append user’s new message (role='user') to conversation.
-        3. Build a list of messages (chat format) for the LLM to see the full context.
-        4. Use that to get the main assistant reply.
-        5. In parallel, do a separate LLM call for emotion analysis.
-        6. Store the user message + emotion, and the assistant reply in the repository.
-        7. Return (assistant_reply, emotion).
-        """
-        # 1) Retrieve existing conversation for user
-        conversation_history = self.conversation_repo.get_conversation(user_id)
-
-        # 2) Add the user’s new message to conversation
-        conversation_history.append({"role": "user", "content": user_prompt})
-
-        # 3) Build the messages for chat format
-        #    You can decide if you want to prepend an explicit system message,
-        #    or rely on the provider to prepend if none exists.
-        messages_for_chatgpt = conversation_history.copy()
-
-        # 4) Send full context to LLM for the main response
-        assistant_reply = self.llm_provider.send_prompt(messages_for_chatgpt)
-
-        # 5) Do a separate call for emotion
-        emotion_analysis_prompt = (
-            f"Analyze the user's emotion in this input:\n\n{user_prompt}"
-        )
-        emotion = self.llm_provider.send_prompt(emotion_analysis_prompt)
-
-        # 6) Store user’s message (with emotion) and assistant reply
-        self.conversation_repo.add_message(
-            user_id=user_id, 
-            role="user", 
-            content=user_prompt, 
-            emotion=emotion
-        )
-        self.conversation_repo.add_message(
-            user_id=user_id,
-            role="assistant",
-            content=assistant_reply
-        )
-
-        return assistant_reply, emotion
-
-    def empathy_assessment(self, user_id, emotion):
-        """
-        Suggest an empathetic approach. Simpler call with fewer messages.
-        """
-        prompt = f"""
-        Context: {self.context}
-        Detected Emotion: {emotion}
-        Possible Motivations: {self.motivations}
-        Evaluate the user's situation and suggest an empathetic approach 
-        that addresses their emotional state and motivations, 
-        aligning with our company's values.
-        """
-        # Here we just send a single string prompt:
-        return self.llm_provider.send_prompt(prompt)
-
-from dotenv import load_dotenv
-from typing import List, Dict
-import json
-
-from emotionsinai import BaseLLM
-from emotionsinai import ConversationRepository
-
-
-class EmotionServices:
-    def __init__(self, conversation_repo: ConversationRepository, llm_provider: BaseLLM, resource_file_path: str):
-        """
-        Inject a ConversationRepository for storing conversation and
-        an LLM provider for sending requests to an LLM.
-        """
-        self.conversation_repo = conversation_repo
-        self.llm_provider = llm_provider
-
-        # Load empathy parameters
-        empathy_parameters = self.load_empathy_parameters(resource_file_path)
-        self.context = empathy_parameters.get("context", "")
         self.goal = empathy_parameters.get("goal", "")
         self.guardrails = empathy_parameters.get("guardrails", [])
 
@@ -142,6 +37,13 @@ class EmotionServices:
             raise RuntimeError(f"Resource file '{file_path}' not found.")
         except json.JSONDecodeError:
             raise RuntimeError(f"Resource file '{file_path}' contains invalid JSON.")
+        
+
+    def get_answer(self, user_prompt: str) -> str:
+        """
+        Calls the LLM provider to get a direct response to the user's prompt (string).
+        """
+        return self.llm_provider.send_prompt(user_prompt)
 
 
     def assess_llm_response(self, user_prompt: str, llm_response: str, user_id: str) -> Dict:
@@ -239,57 +141,62 @@ class EmotionServices:
         return analysis_dict
 
 
-    def get_response_and_emotion(self, user_id: str, user_prompt: str):
+    def extract_emotion_scores(self, user_message: str) -> Dict[str, float]:
         """
-        1. Retrieve conversation for this user.
-        2. Append user’s new message (role='user') to conversation.
-        3. Build a list of messages (chat format) for the LLM to see the full context.
-        4. Use that to get the main assistant reply.
-        5. In parallel, do a separate LLM call for emotion analysis.
-        6. Store the user message + emotion, and the assistant reply in the repository.
-        7. Return (assistant_reply, emotion).
+        Calls the LLM to get multiple emotion scores (0.0 - 1.0) for trust, frustration, positivity, closeness, etc.
+        Returns a dict with the scores.
         """
-        # 1) Retrieve existing conversation for user
-        conversation_history = self.conversation_repo.get_conversation(user_id)
+        # This system message instructs the LLM to act as an emotion analyzer
+        system_msg = "You are an emotion analysis assistant that outputs JSON with numeric scores for each emotion."
 
-        # 2) Add the user’s new message to conversation
-        conversation_history.append({"role": "user", "content": user_prompt})
+        # For example, define a set of emotions you want:
+        user_content = f"""
+        Analyze this text and rate the following emotions from 0.0 to 1.0:
+        - trust
+        - frustration
+        - positivity
+        - closeness
 
-        # 3) Build the messages for chat format
-        #    You can decide if you want to prepend an explicit system message,
-        #    or rely on the provider to prepend if none exists.
-        messages_for_chatgpt = conversation_history.copy()
+        Text: {user_message}
 
-        # 4) Send full context to LLM for the main response
-        assistant_reply = self.llm_provider.send_prompt(messages_for_chatgpt)
+        Return valid JSON of the form:
+        {{
+        "trust": 0.0,
+        "frustration": 0.0,
+        "positivity": 0.0,
+        "closeness": 0.0
+        }}
+        """
 
-        # 5) Do a separate call for emotion
-        emotion_analysis_prompt = (
-            f"Analyze the user's emotion in this input:\n\n{user_prompt}"
-        )
-        emotion = self.llm_provider.send_prompt(emotion_analysis_prompt)
+        messages = [
+            {"role": "system", "content": system_msg},
+            {"role": "user", "content": user_content}
+        ]
 
-        # 6) Store user’s message (with emotion) and assistant reply
-        self.conversation_repo.add_message(
-            user_id=user_id, 
-            role="user", 
-            content=user_prompt, 
-            emotion=emotion
-        )
-        self.conversation_repo.add_message(
-            user_id=user_id,
-            role="assistant",
-            content=assistant_reply
-        )
+        raw_response = self.llm_provider.send_prompt(messages)
 
-        return assistant_reply, emotion
-    
+        # Attempt to parse the JSON
+        try:
+            emotion_scores = json.loads(raw_response)
+            # Validate that all required keys exist
+            for key in ["trust", "frustration", "positivity", "closeness"]:
+                if key not in emotion_scores:
+                    emotion_scores[key] = 0.5  # or some default
+            return emotion_scores
+        except json.JSONDecodeError:
+            # fallback in case the LLM doesn't return valid JSON
+            return {
+                "trust": 0.5,
+                "frustration": 0.5,
+                "positivity": 0.5,
+                "closeness": 0.5
+            }
+        
 
     def draft_empathic_response(
         self, 
         user_id: str, 
         initial_answer: str, 
-        empathy_assessment: str, 
         empathy_temperature: float, 
         analysis_dict: dict
     ) -> str:
@@ -300,7 +207,6 @@ class EmotionServices:
         
         :param user_id:           ID of the user (for retrieving conversation history)
         :param initial_answer:    The answer given by the LLM prior to improvements
-        :param empathy_assessment:The summarized empathy guidelines (e.g., from assess_empathy_chatgpt)
         :param empathy_temperature:Degree of empathy (0.0 - 1.0) to infuse
         :param analysis_dict:     The structured result of assess_llm_response, which may include:
                                 {
@@ -331,7 +237,6 @@ class EmotionServices:
         # Build the user prompt that includes all relevant data
         prompt = f"""
         The user asked a question, and you gave an answer: {initial_answer}
-        The empathy assessment suggests: {empathy_assessment}
 
         The meta-analysis provided the following insights:
         - Fit Score: {fit_score}
