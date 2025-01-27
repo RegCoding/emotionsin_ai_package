@@ -26,5 +26,21 @@ def main():
 # References
 
 Building Emotional Support Chatbots in the Era of LLMs: https://arxiv.org/pdf/2308.11584
+
 DialogueLLM: Context and Emotion Knowledge-Tuned Large Language Models for Emotion Recognition in Conversations: https://arxiv.org/html/2310.11374v4
+
 The Good, The Bad, and Why: Unveiling Emotions in Generative AI: https://arxiv.org/html/2312.11111v3#bib.bib39
+
+## Citation
+
+If you use Browser Use in your research or project, please cite:
+
+```bibtex
+@software{emotionsinai,
+  author = {Gerrit Knippschild},
+  title = {Emotionsin.ai - Empowering AI Agents with Emotions and Empathy},
+  year = {2025},
+  publisher = {GitHub},
+  url = {https://github.com/emotionsinai}
+}
+```
