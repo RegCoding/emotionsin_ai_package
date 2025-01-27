@@ -22,3 +22,9 @@ def main():
     emotion_service = EmotionServices(conversation_repo, llm_provider=provider, resource_file_path="resources.json")
 
 ```
+
+# References
+
+Building Emotional Support Chatbots in the Era of LLMs: https://arxiv.org/pdf/2308.11584
+DialogueLLM: Context and Emotion Knowledge-Tuned Large Language Models for Emotion Recognition in Conversations: https://arxiv.org/html/2310.11374v4
+The Good, The Bad, and Why: Unveiling Emotions in Generative AI: https://arxiv.org/html/2312.11111v3#bib.bib39
