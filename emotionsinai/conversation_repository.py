@@ -1,5 +1,5 @@
 # conversation_repository.py
-from emotionsinai import UserEmotionalProfile 
+from .user_emotional_profile import UserEmotionalProfile 
 
 class ConversationRepository:
     """
