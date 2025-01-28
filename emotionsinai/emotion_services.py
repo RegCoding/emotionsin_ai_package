@@ -21,6 +21,8 @@ class EmotionServices:
         self.goal = empathy_parameters.get("goal", "")
         self.guardrails = empathy_parameters.get("guardrails", [])
 
+        self.user_emotion_scores = {}
+
 
     def load_empathy_parameters(self, file_path:str="resources.json"):
         """
@@ -65,7 +67,10 @@ class EmotionServices:
         # 1) Retrieve existing conversation (excluding this final prompt & answer if you prefer)
         conversation_history = self.conversation_repo.get_conversation(user_id)
 
-        # 2) Prepare a system message that instructs the LLM to perform meta-analysis
+        # 2) Extract multi-emotion scores from the user's new message
+        self.user_emotion_scores = self.extract_emotion_scores(user_prompt)
+
+        # 3) Prepare a system message that instructs the LLM to perform meta-analysis
         system_msg = (
             "You are a meta-analysis assistant. Your job is to review the conversation "
             "history, the user's latest prompt, and the LLM's response, then critique "
@@ -201,40 +206,46 @@ class EmotionServices:
         analysis_dict: dict
     ) -> str:
         """
-        Combine the initial_answer, empathy_assessment, and the meta-analysis (analysis_dict)
-        into a new empathic reply. We also leverage conversation_history so we can
-        mirror the user's style if we want.
-        
-        :param user_id:           ID of the user (for retrieving conversation history)
-        :param initial_answer:    The answer given by the LLM prior to improvements
-        :param empathy_temperature:Degree of empathy (0.0 - 1.0) to infuse
-        :param analysis_dict:     The structured result of assess_llm_response, which may include:
-                                {
-                                    'fit_score': ...,
-                                    'improvement_areas': ...,
-                                    'hidden_emotional_points': ...,
-                                    'recommendations': ...
-                                }
-        :return:                  The final improved empathic reply
+        Combine the initial_answer, meta-analysis (analysis_dict), user emotional profile,
+        and any outlier info into a final empathic reply. Also mirrors the user's style if desired.
         """
 
-        # Retrieve conversation history
+        # 1) Retrieve conversation history
         conversation_history = self.conversation_repo.get_conversation(user_id)
 
-        # Extract details from the analysis_dict
+        # 2) Retrieve or create user profile
+        user_profile = self.conversation_repo.get_user_profile(user_id)
+
+        # 3) Check for outliers or update profile if no outliers
+        outliers_list = user_profile.detect_outliers(self.user_emotion_scores, threshold=0.3)
+        if outliers_list:
+            outliers = True
+            outlier_info = (
+                f"The following emotion outliers were detected: {outliers_list}. "
+                "Consider showing curiosity or asking clarifying questions if these changes "
+                "are unexpected or abrupt.\n"
+            )
+        else:
+            user_profile.update_emotions(self.user_emotion_scores)
+            outlier_info = ""
+
+        # 4) Extract details from analysis_dict
         fit_score = analysis_dict.get("fit_score", "N/A")
         improvement_areas = analysis_dict.get("improvement_areas", "")
         hidden_points = analysis_dict.get("hidden_emotional_points", "")
         recommendations = analysis_dict.get("recommendations", "")
 
-        # Create a system message that sets the overall instructions
+        # 5) Gather current rolling averages from the user_profile
+        profile_averages = user_profile.rolling_averages  # e.g., {"trust": 0.63, "frustration": 0.15, ...}
+
+        # 6) Create a system message that sets the overall instructions
         system_msg = (
             "You are an empathetic assistant. Use a writing style similar to the user's style. "
             "Please read the conversation so far to match tone and wording. "
             "Incorporate the identified improvements from the meta-analysis into your final response."
         )
 
-        # Build the user prompt that includes all relevant data
+        # 7) Build the user prompt that includes all relevant data
         prompt = f"""
         The user asked a question, and you gave an answer: {initial_answer}
 
@@ -244,21 +255,32 @@ class EmotionServices:
         - Hidden Emotional Points: {hidden_points}
         - Recommendations: {recommendations}
 
+        The user's emotional profile (rolling averages):
+        {profile_averages}
+
+        {outlier_info}
+
         Please combine these into a single empathic response. 
         Mirror the user's tone and style, and adjust empathy level to {empathy_temperature}.
+
+        When incorporating the user’s emotional profile, keep in mind:
+        - If the user shows a pattern (consistently high or low in certain emotions), 
+            respond in a way that acknowledges that emotional state.
+        - If there is a sudden spike or drop (an outlier), consider politely asking clarifying questions 
+            or expressing curiosity about this change.
         """
 
-        # Build the final messages list for the LLM
+        # 8) Build the final messages list for the LLM
         messages_for_chatgpt = (
             [{"role": "system", "content": system_msg}]
             + conversation_history
             + [{"role": "user", "content": prompt}]
         )
 
-        # Ask the LLM provider to generate the improved empathic reply
+        # 9) Ask the LLM provider to generate the improved empathic reply
         empathic_reply = self.llm_provider.send_prompt(messages_for_chatgpt)
 
-        # Store the final empathic reply in the conversation
+        # 10) Store the final empathic reply in the conversation
         self.conversation_repo.add_message(
             user_id=user_id,
             role="assistant",
@@ -266,4 +288,5 @@ class EmotionServices:
         )
 
         return empathic_reply
+
 
