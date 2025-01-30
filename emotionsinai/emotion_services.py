@@ -116,7 +116,7 @@ class EmotionServices:
         #profile_averages = user_profile.rolling_averages
 
 
-    def self_reflection(self, user_id: str) -> str:
+    def self_reflection(self) -> str:
         print("self_reflection to be done")
         # we also need to update the inner_state of the Agent!!!
         
