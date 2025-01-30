@@ -8,6 +8,7 @@ emotionsinai/emotion_services.py
 emotionsinai/inner_state.py
 emotionsinai/openai_provider.py
 emotionsinai/user_emotional_profile.py
+emotionsinai/user_profile.py
 emotionsinai.egg-info/PKG-INFO
 emotionsinai.egg-info/SOURCES.txt
 emotionsinai.egg-info/dependency_links.txt

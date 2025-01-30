@@ -2,42 +2,36 @@ from dotenv import load_dotenv
 from typing import List, Dict
 import json
 
-from emotionsinai import BaseLLM
-from emotionsinai import ConversationRepository
+from .base_llm import BaseLLM
+from .user_profile import UserProfile
+from .inner_state import InnerState
 
 
 class EmotionServices:
-    def __init__(self, conversation_repo: ConversationRepository, llm_provider: BaseLLM, resource_file_path: str):
+    def __init__(self, llm_provider: BaseLLM, resource_file_path: str):
         """
         Inject a ConversationRepository for storing conversation and
         an LLM provider for sending requests to an LLM.
         """
-        self.conversation_repo = conversation_repo
+        self.user_profiles: Dict[str, UserProfile] = {}
         self.llm_provider = llm_provider
-
-        # Load empathy parameters
+        
+        # Load empathy parameters and create emotional agent
         self.emotion_setup = self.load_emotion_setup(resource_file_path)
-        self.context = self.emotion_setup.get("context", "")
-        self.goal = self.emotion_setup.get("goal", "")
-        self.guardrails = self.emotion_setup.get("guardrails", [])
-        self.emotion_parameters = self.emotion_setup.get("emotional_parameters", {})
-        self.emotional_intensity = self.emotion_parameters.get("emotional_intensity", "")
-        self.emotions = self.emotion_parameters.get("emotional_range", [])
-        self.emotional_regulation = self.emotion_parameters.get("emotional_regulation", "")
-        self.emotional_stability = self.emotion_parameters.get("emotional_stability", "")
-        self.emotional_empathy = self.emotion_parameters.get("emotional_empathy", "")
-        self.emotional_expression = self.emotion_parameters.get("emotional_expression", "")
-        self.emotional_awareness = self.emotion_parameters.get("emotional_awareness", "")
-        self.emotional_triggers = self.emotion_parameters.get("emotional_triggers", "")
-        self.emotional_adaptability = self.emotion_parameters.get("emotional_adaptability", "")
-        self.emotional_authenticity = self.emotion_parameters.get("emotional_authenticity", "")
-        self.social_emotional_connectivity = self.emotion_parameters.get("social_emotional_connectivity", "")
-        self.cultural_influence_on_emotion = self.emotion_parameters.get("cultural_influence_on_emotion", "")
-
+        print(f"Emotion setup: {self.emotion_setup}")
+        self.inner_state = InnerState(self.emotion_setup)
+        
         self.user_emotion_scores = {}
 
 
-    def load_emotion_setup(self, file_path:str="resources.json"):
+    # New or updated methods to manage user profiles
+    def get_user_profile(self, user_id) -> UserProfile:
+        if user_id not in self.user_profiles:
+            self.user_profiles[user_id] = UserProfile(user_id)
+        return self.user_profiles[user_id]
+    
+
+    def load_emotion_setup(self, file_path:str="resources.json") -> Dict:
         """
         Load empathy parameters (context and motivations) from a JSON file.
         
@@ -47,7 +41,7 @@ class EmotionServices:
         try:
             with open(file_path, "r") as file:
                 data = json.load(file)
-            return data.get("emotion_parameters", {})
+            return data
         except FileNotFoundError:
             raise RuntimeError(f"Resource file '{file_path}' not found.")
         except json.JSONDecodeError:
@@ -60,6 +54,72 @@ class EmotionServices:
         """
         return self.llm_provider.send_prompt(user_prompt)
 
+
+    def emotional_response(self, user_id: str, prompt: str) -> str:
+        """
+        Analyze the user's prompt and generate an empathetic response.
+        """
+        userprofile = self.get_user_profile(user_id)
+        # 1) Retrieve conversation history with the respective user
+        conversation_history = userprofile.get_conversation_history(5)  #get the last 5 messages in the chat history of the user
+
+        # 2) Retrieve or create user profile
+        avg_user_emotions = userprofile.get_emotional_profile()
+
+        # 3) Extract multi-emotion scores from the user's new message
+        self.user_emotion_scores = self.extract_emotion_scores(prompt)
+
+        # 4) Create the prompt here, which includes the conversation history, the user's prompt in context of the history, the extracted emotions (in User_emotion_scores) and the current inner state with all it parameters.
+        # Core question would be: How would an emotional, empathic agent respond to this user prompt considering his own current emotions, the emotion of the user, and the conversation history?
+        agent_state = self.inner_state.get_state()
+        full_prompt = (
+            "You are an empathetic AI agent responding to a user. Consider the following inputs to craft your response:\n"
+            "1. Conversation History: This helps you understand the broader context of the user's prompt. Does the prompt align with previous discussions? Is there any inconsistency in style or content?\n"
+            "2. User's Extracted Emotions: These represent how the AI perceives the user's emotions. These feelings naturally influence how the AI should respond.\n"
+            "3. Agent's Current Emotional State: Just like a human, the AI's emotional state influences its response.\n"
+            "\n"
+            "Given this information, formulate a response that a human would naturally give, considering their own state of mind and these contextual factors.\n"
+            "Ensure the response is empathetic, contextually relevant, and aligns with the AI's role as a helpful and emotionally aware colleague.\n"
+            f"\nConversation History: {conversation_history}\n"
+            f"User Prompt: {prompt}\n"
+            f"Users emotions expressed in his last prompt: {self.user_emotion_scores}\n"
+            f"Your overall emotional picture about the user: {avg_user_emotions}\n"            
+            f"Your current overall emotional state: {agent_state}\n"
+        )
+
+        print(f"THE EMPATHIC PROMPT: {full_prompt}")
+
+        empathic_response = self.get_answer(full_prompt)
+
+        userprofile.add_message("User", prompt, self.user_emotion_scores)   #add the prompt of the user to the conversation history of the user
+        userprofile.add_message("You", empathic_response)   #add the response of the AI Agent to the conversation history of the user
+        userprofile.update_emotions(self.user_emotion_scores)   #update the emotional profile of the user with the new user_emotion_scores
+
+        return empathic_response
+
+        # 5) Check for outliers or update profile if no outliers
+        #outliers_list = user_profile.detect_outliers(user_emotion_scores, threshold=0.3)
+        #if outliers_list:
+        #    outliers = True
+        #    outlier_info = (
+        #        f"The following emotion outliers were detected: {outliers_list}. "
+        #        "Consider showing curiosity or asking clarifying questions if these changes "
+        #        "are unexpected or abrupt.\n"
+        #    )
+        #else:
+        #    outlier_info = ""
+
+        # 6) Update the agent's emotional state based on the user's multi-emotion scores --> that happens at the end, because it takes a bit to reflect on the new user_emotion_scores
+        #user_profile.update_emotions(user_emotion_scores)
+
+        # 7) Gather current rolling averages from the user_profile
+        #profile_averages = user_profile.rolling_averages
+
+
+    def self_reflection(self, user_id: str) -> str:
+        print("self_reflection to be done")
+        # we also need to update the inner_state of the Agent!!!
+        
 
     def assess_llm_response(self, user_prompt: str, llm_response: str, user_id: str) -> Dict:
         """
@@ -165,11 +225,11 @@ class EmotionServices:
         Returns a dict with the scores.
         """
         # This system message instructs the LLM to act as an emotion analyzer
-        system_msg = "You are an emotion analysis assistant that outputs JSON with numeric scores for each emotion."
+        system_msg = "You are an empathic agent that is very sensitive on different emotions and that outputs a JSON with numeric scores for each identified emotion."
 
         # For example, define a set of emotions you want:
         user_content = f"""
-        Analyze this text and rate the following emotions from 0.0 to 1.0:
+        Analyze this text and rate the following emotions from 0.0 to 1.0, wherbey 1.0 is the maximum of the given emotion:
             happiness,
             sadness,
             anger,
@@ -180,25 +240,28 @@ class EmotionServices:
             jealousy,
             guilt,
             pride,
+            shame,
+            compassion,
             sympathy,
             trust
-
         Text: {user_message}
 
         Return valid JSON of the form:
         {{
-        "happiness": 0.0,
-        "sadness": 0.0,
-        "anger": 0.0,
-        "fear": 0.0,
-        "surprise": 0.0,
-        "disgust": 0.0,
-        "love": 0.0,
-        "jealousy": 0.0,
-        "guilt": 0.0,
-        "pride": 0.0,
-        "sympathy": 0.0,
-        "trust": 0.0
+            "happiness": 0.0,
+            "sadness": 0.0,
+            "anger": 0.0,
+            "fear": 0.0,
+            "surprise": 0.0,
+            "disgust": 0.0,
+            "love": 0.0,
+            "jealousy": 0.0,
+            "guilt": 0.0,
+            "pride": 0.0,
+            "shame": 0.0,
+            "compassion": 0.0,
+            "sympathy": 0.0,
+            "trust": 0.0
         }}
         """
 
@@ -220,7 +283,7 @@ class EmotionServices:
         except json.JSONDecodeError:
             # fallback in case the LLM doesn't return valid JSON
             return {
-                "happiness": 0.5,
+                "happiness": 0.0,
                 "sadness": 0.0,
                 "anger": 0.0,
                 "fear": 0.0,
@@ -230,7 +293,9 @@ class EmotionServices:
                 "jealousy": 0.0,
                 "guilt": 0.0,
                 "pride": 0.0,
-                "sympathy": 0.5,
+                "shame": 0.0,
+                "compassion": 0.0,
+                "sympathy": 0.0,
                 "trust": 0.0
             }
         
@@ -298,14 +363,9 @@ class EmotionServices:
         {outlier_info}
 
         Please combine these into a single empathic response. 
-        Mirror the user's tone and style, and adjust empathy level to {self.emotional_intensity}, wherby a value of 1.0 means the maximum of possible empathy considering all 
-        input parameters, and a value of 0.0 means that you show no emotions or empathy at all not matter of the given input parameters.
+        Mirror the user's tone and style, and adjust empathy level to {self.emotional_intensity}, wherby a value of HIGH means the maximum of possible empathy considering all 
+        input parameters, and a value of VERY LOW means that you show no emotions or empathy at all not matter of the given input parameters.
 
-        When incorporating the user’s emotional profile, keep in mind:
-        - If the user shows a pattern (consistently high or low in certain emotions), 
-            respond in a way that acknowledges that emotional state.
-        - If there is a sudden spike or drop (an outlier), consider politely asking clarifying questions 
-            or expressing curiosity about this change.
         """
 
         # 8) Build the final messages list for the LLM
