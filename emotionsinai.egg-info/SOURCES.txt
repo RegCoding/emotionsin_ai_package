@@ -6,8 +6,10 @@ emotionsinai/base_llm.py
 emotionsinai/emotion_services.py
 emotionsinai/ollama_provider.py
 emotionsinai/openai_provider.py
+emotionsinai/reflection.py
 emotionsinai/reponse.py
 emotionsinai/user_profile.py
+emotionsinai/writing_style.py
 emotionsinai.egg-info/PKG-INFO
 emotionsinai.egg-info/SOURCES.txt
 emotionsinai.egg-info/dependency_links.txt

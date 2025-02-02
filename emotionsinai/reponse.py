@@ -67,7 +67,7 @@ class Response:
                 f"Your current overall emotional state: {agent_state}\n"   
         )
 
-        print(f"THE EMPATHIC PROMPT: {empathic_prompt}")
+        #print(f"THE EMPATHIC PROMPT: {empathic_prompt}")
 
         empathic_response = self.llm.send_prompt(empathic_prompt)
 
