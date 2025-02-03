@@ -2,7 +2,7 @@ import json
 import threading
 import time
 import queue
-from typing import Dict, Optional
+from typing import Dict, Optional, Tuple
 
 from dotenv import load_dotenv
 
@@ -53,6 +53,7 @@ class EmotionServices:
         self.processed_reflection = None
 
         # Initialize internal agents (from the JSON) and set up inter-thread communication.
+        # The queues now hold tuples of (user_id, message)
         self.internal_agents: Dict[int, Dict] = {}  # keys: agent id, values: agent config
         self.agent_queues: Dict[int, queue.Queue] = {}  # communication channel per agent id
         self.agent_threads: Dict[int, threading.Thread] = {}  # store thread references
@@ -61,7 +62,6 @@ class EmotionServices:
 
         # Start additional background tasks (if needed).
         threading.Thread(target=self.process_new_input, daemon=True).start()
-        # Start background threads
         self.start_background_tasks()
 
     def get_new_response(self):
@@ -103,52 +103,62 @@ class EmotionServices:
         # Create and start a thread for each internal agent.
         for agent_id in sorted(self.internal_agents.keys()):
             agent = self.internal_agents[agent_id]
-            thread = threading.Thread(target=self.internal_agent_worker, args=(agent,), daemon=True)
+            # The second parameter user_id is set to None initially; it will be extracted from the queued messages.
+            thread = threading.Thread(target=self.internal_agent_worker, args=(agent, None), daemon=True)
             thread.start()
             self.agent_threads[agent_id] = thread
 
-    def internal_agent_worker(self, agent: Dict):
+    def internal_agent_worker(self, agent: Dict, user_id: Optional[str] = None):
         """
         Worker function for an internal agent.
+        Now each agent also receives a user_id from the incoming message.
         Each agent waits for input from its predecessor's queue (agent_id - 1).
         For agent 1, the input is expected to be placed by add_input().
-        The worker processes the message (here simulated by a simple transformation)
+        The worker processes the message (here simulated by a call to self.llm_reflecting)
         and then, if there is a next agent in the chain, passes the processed output along.
         If it is the last agent, the output is stored in self.processed_reflection.
         """
         agent_id = int(agent.get("id"))
         agent_name = agent.get("name", f"agent_{agent_id}")
         while True:
-            # Determine which queue to listen on.
+            # Determine which queue to listen on and extract user_id from the message.
             if agent_id == 1:
                 # The first agent receives input directly from add_input().
-                input_message = self.agent_queues[1].get()  # blocking call
+                user_id, input_message = self.agent_queues[1].get()  # blocking call
             else:
                 # For other agents, wait on the queue of the previous agent.
-                input_message = self.agent_queues[agent_id - 1].get()
+                user_id, input_message = self.agent_queues[agent_id - 1].get()
 
-            #print(f"[Internal Agent {agent_id} - {agent_name}] received input: {input_message}")
+            #print(f"THATS THE EMOTIONAN VALUE OF {agent_name} : {self.get_user_profile(user_id).get_emotional_profile()[agent_name]}")
+            # Simulate processing using the llm_reflecting.
+            # For example, use agent's goal and action and incorporate the user_id into the prompt.
 
-            # Simulate processing (this could be replaced by a call to self.llm_reflecting).
-            agent_goal = agent.get("goal")
-            agent_action = agent.get ("action") + f" - This is required user input, your own emotional state and the current status of the ongoing discussion with other agents: {input_message}"
+            emotion_value = self.get_user_profile(user_id).get_emotional_profile()[agent_name]
 
-            messages = [
-                {"role": agent_goal, "content": agent_action}
-            ]
-
-            agent_answer = self.llm_reflecting.send_prompt(messages)
-            processed_message = input_message + f"--> Response {agent_name}: {agent_answer}"
-            print(f"[Internal Agent {agent_id} - {agent_name}] processed output: {agent_answer}")
+            if emotion_value > 0:   #make sure that we only let emotional agents answer if they have a certain emotional value
+                agent_goal = agent.get("goal", "default_goal")
+                agent_action = (
+                    agent.get("action", "default_action")
+                    + f" - Process for user {user_id}. Your current input: {input_message}"
+                )
+                messages = [
+                    {"role": agent_goal, "content": agent_action}
+                ]
+                # Assume send_prompt returns a string response.
+                agent_answer = self.llm_reflecting.send_prompt(messages)
+                processed_message = input_message + f" --> Response {agent_name}: {agent_answer}"
+                print(f"[Internal Agent {agent_id} - {agent_name}] processed output for user {user_id}: {agent_answer}")
+            else:
+                processed_message = input_message
 
             # Check if there is an agent with id = agent_id + 1.
             if (agent_id + 1) in self.agent_queues:
-                # Pass the processed message to the next agent's queue.
-                self.agent_queues[agent_id].put(processed_message)
+                # Pass the processed message (along with user_id) to the current agent's queue.
+                self.agent_queues[agent_id].put((user_id, processed_message))
             else:
                 # If this is the last agent, store the result.
                 self.processed_reflection = processed_message
-                #print(f"[Internal Agent {agent_id} - {agent_name}] final processed output: {processed_message}")
+                print(f"[Internal Agent {agent_id} - {agent_name}] final processed output for user {user_id}: {processed_message}")
 
             # Brief sleep to simulate processing time.
             time.sleep(1)
@@ -165,17 +175,20 @@ class EmotionServices:
         """
         Public method to add new input. This generates a new external response,
         and then injects that response into the processing pipeline by placing it in agent 1's queue.
+        The user_id is now passed along with the message.
         """
         user_profile = self.get_user_profile(user_id)
         self.new_response = self.response.emotional_response(user_id, prompt, user_profile, self.agent_state, answer)
         print(f"Intuitive response: {self.new_response}")
 
-        agent_input = f"""This is your current emotional profile about the user: {user_profile}, 
-                      the last user prompt: {prompt}, and the generated response: {self.new_response},
-                      and the current emotional state of the agent: {self.agent_state}"""
-        # Put the new response into the queue for agent 1.
+        agent_input = (
+            f"This is your current emotional profile about the user: {user_profile}, "
+            f"the last user prompt: {prompt}, and the generated response: {self.new_response}, "
+            f"and the current emotional state of the agent: {self.agent_state}"
+        )
+        # Put the new response (with user_id) into the queue for agent 1.
         if 1 in self.agent_queues:
-            self.agent_queues[1].put(agent_input)
+            self.agent_queues[1].put((user_id, agent_input))
         else:
             print("[Main] Warning: No internal agent with id 1 found.")
 
@@ -187,7 +200,6 @@ class EmotionServices:
         while True:
             time.sleep(2)
             if self.new_response is not None:
-                #print(f"[Background] Processing new input: {self.new_response}")
                 # Additional processing logic could go here.
                 self.new_response = None
 
