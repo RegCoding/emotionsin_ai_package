@@ -6,7 +6,7 @@ Install with pip:
 pip install emotionsinai
 ```
 
-# Setup EmotionsinAI
+# Setup and Run EmotionsinAI
 
 ```python
 from emotionsinai import OllamaProvider, EmotionServices
@@ -17,6 +17,9 @@ from emotionsinai import OllamaProvider, EmotionServices
 self.reflection_llm = OllamaProvider(model_name="llama3.1")
 # As alternative I already added an OpenAI derivative class from BaseLLM - see example here:
 self.reflection_llm = OpenAIProvider(model_name="gpt-4", temperature=0.7, openai_key=OPENAI_API_KEY)
+
+# Specific a unique user_id for your ai_agent
+self.user_id = "user321"
 
 # Initiate the EmotionService with the chosen conversation_repo and llm provider
 self.emotion_service = EmotionServices(
@@ -36,6 +39,18 @@ self.emotion_service.add_input(self.user_id, user_input, answer, False, False)
 new_response = self.emotion_service.get_new_response()
 
 ```
+# Overview
+
+The future of work is not just human—it’s human and AI, working together at eye level.
+Successful companies will be those that seamlessly integrate AI into their workforce—not just as an automation tool, but as a true collaborator that understands human needs, motivations, and emotions. At Emotions in AI, we believe the key to this transformation lies in AI Agents with empathy.
+AI that can recognize and respond to human emotions can build trust, improve teamwork, and enhance interactions with employees, customers, and suppliers alike.
+This isn’t just about making AI more relatable—it’s about creating a competitive advantage.
+
+# Why Emotionsin.ai
+
+Emotionsin.ai is an open-source concept of how to extend the capabilities of modern AI Agent with an internal emotional system and profile. An internal emotional system that adapts to external input, like user-communications.
+It not only give AI Agent an individual personal profile but allows thems to build unique emotional relationships to different users, as well as an own internal emotional status.
+The idea is, that an AI Agent with its own profile and internal emotional system will act and communicate more like a human, which will give room to build more intense and trusted relationships between AI Agents and their human counterparts.
 
 # Recommendations
 
