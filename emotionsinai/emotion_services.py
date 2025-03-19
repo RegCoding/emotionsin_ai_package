@@ -43,15 +43,6 @@ class EmotionServices:
         except (FileNotFoundError, json.JSONDecodeError):
             print(f"Warning: Could not load emotion_system_prompt file '{system_prompt_path}'. Proceeding without emotion setup.")
 
-        # Load overall emotion setup if needed.
-        #self.emotion_setup = {}
-        #try:
-        #    with open(resource_file_path, "r") as file:
-        #        data = json.load(file)
-        #        self.emotion_setup = data.get("emotion_setup", {})
-        #except (FileNotFoundError, json.JSONDecodeError):
-        #    print(f"Warning: Could not load resource file '{resource_file_path}'. Proceeding without emotion_setup.")
-
         # Attributes for storing responses.
         self.new_response = None
         self.processed_reflection = None
@@ -69,6 +60,11 @@ class EmotionServices:
         threading.Thread(target=self.process_input, daemon=True).start()  # New input processing thread
 
     def get_prompt_extension(self, user_id):
+        """
+        Returns a prompt extension that includes the current emotional state and profile of the user.
+        This is required to ensure that the LLM can generate responses that are emotionally appropriate.
+        """
+
         return f"""{self.emotion_system_prompt}. 
             Your current name:"{self.internal_profile.my_name}";
             Your current goal:"{self.internal_profile.my_goal}";
@@ -82,21 +78,36 @@ class EmotionServices:
             Your current relationship building:"{self.internal_profile.relationship_building}".
             Your emotions about the user you are just talking to:"{self.get_user_profile(user_id).get_emotional_profile()}".     
         """ 
-
     def get_new_response(self):
+        """
+        Checks for a new response from the emotion service.
+        Returns the new response if available, or None if not.
+        """
         return_response = self.new_response
         self.new_response = None  # Clear the previous response.
         return return_response
     
     def get_self_reflection(self):
+        """
+        Checks for a new self-reflection from the emotion service.
+        Self-reflection is a process where the AI reflects on its own emotional state and behavior.
+        Its like an internal log for the AI Agent and typically used for debugging or monitoring purposes.
+        Returns the new self-reflection if available, or None if not.
+        """
         reflection = self.processed_reflection
         self.processed_reflection = ""  # Clear the previous reflection.
         return reflection
     
     def set_self_reflection(self, new_reflection):
+        """
+        Set the new self-reflection for the AI Agent.
+        """
         self.processed_reflection = new_reflection
     
     def get_self_emotions(self):
+        """
+        Retrieve the current emotional state of the agent.
+        """
         return self.internal_profile.emotional_profile
     
     def get_user_profile(self, user_id: str) -> UserProfile:
@@ -147,7 +158,7 @@ class EmotionServices:
             """
         # Send the prompt to the LLM and capture its response.
         response = self.llm_reflecting.send_prompt(prompt)
-        print(f"LLM response: {response}")
+        #print(f"LLM response: {response}")
 
         # Attempt to convert the response to a Python dictionary.
         try:
@@ -254,8 +265,6 @@ class EmotionServices:
         # Retrieve baseline emotions from the internal profile.
         baseline = self.internal_profile.emotional_profile.get("baseline_emotions", {})
 
-        #print(f"##########BASELINE EMOTIONS:{baseline}")
-        
         # For demonstration purposes, we assume baseline emotions are already initialized.
         # If a specific emotion is missing, default to a neutral value of 0.5.
         def get_emotion(emotion: str) -> float:
@@ -307,12 +316,25 @@ class EmotionServices:
         # self.user_feeling[user_id] = baseline["happiness"]  # This is a simplified example.
 
     def add_input(self, user_id: str, prompt: str, answer: Optional[str] = None, writing_style: bool = False, text_split: bool = False):
+        """
+        Add a new input to the emotion service queue for processing. The input is added as a tuple containing: 
+        - user_id: A unique identifier for the user.
+        - prompt: The user's prompt or message.
+        - answer: The AI's response or answer (if available).
+        - writing_style: A boolean indicating whether to adapt the writing style of the response.
+        - text_split: A boolean indicating whether to split the response into multiple parts for a more human-like interaction.
+        """
         self.input_queue.put((user_id, prompt, answer, writing_style, text_split))
 
     def process_input(self):
+        """
+        Process the input queue by extracting emotional scores from the user input, updating the internal emotional system,
+        and adapting the emotional response to the historic writing style if required.
+        """
         while True:
             user_id, prompt, answer, writing_style, text_split = self.input_queue.get()
             
+            # Extract emotional scores from the user input and update the internal emotional system.
             user_profile = self.get_user_profile(user_id)
             scores = self.parse_input(prompt)
             appraisal = self.evaluate_appraisal(scores)
@@ -322,9 +344,12 @@ class EmotionServices:
             emotion_levels = scores.get("emotion_levels", {})
             new_emotions = [{"emotion": key, "score": value} for key, value in emotion_levels.items()]
             
+            # Add the user's message to the conversation history.
             user_profile.add_message("User", prompt, new_emotions)
+            # Updates the user's emotional profile of the ai agent with the new emotions extracted from the last user input.
             user_profile.update_emotions(new_emotions)
 
+            # Optionally adapt the writing style of the response.
             if writing_style:
                 writing_style_instance = WritingStyle(self.llm_reflecting)
                 adapted_answer = writing_style_instance.adapt_writing_style(user_id, user_profile, new_emotions, answer)
@@ -332,6 +357,7 @@ class EmotionServices:
             else:
                 adapted_answer = answer
 
+            # Optionally split the response into multiple parts for a more human-like interaction.
             if text_split:
                 response_split = Response_Split(self.llm_reflecting)
                 response_list = response_split.return_response_split(user_id, prompt, user_profile, new_emotions, adapted_answer)
@@ -339,6 +365,7 @@ class EmotionServices:
             else:
                 response_list = [(adapted_answer, 0)]
 
+            # Add the response to the send_response_queue for further processing.
             self.send_response_queue.put((user_id, response_list))
 
     def reflection_process(self):

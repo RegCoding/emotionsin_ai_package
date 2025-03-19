@@ -14,3 +14,7 @@ keywords = ["aiagents", "llm", "emotions", "empathy"]
 classifiers = [
     "Programming Language :: Python :: 3"
 ]
+
+[tool.setuptools.packages.find]
+include = ["emotionsinai*"]  # or "my_package*" etc.
+exclude = ["demos", "demos.*"]
