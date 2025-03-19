@@ -46,8 +46,8 @@ Successful companies will be those that seamlessly integrate AI into their workf
 AI that can recognize and respond to human emotions can build trust, improve teamwork, and enhance interactions with employees, customers, and suppliers alike.
 This isn’t just about making AI more relatable—it’s about creating a competitive advantage.
 
-[!TIP]
-We highly recommend to use Emotionsin.ai in combination with Langchain long-term memory (https://langchain-ai.github.io/langmem/) or any other kind of long-term memory system. It will improve the user-experience significantly.
+>[!TIP]
+>We highly recommend to use Emotionsin.ai in combination with Langchain long-term memory (https://langchain-ai.github.io/langmem/) or any other kind of long-term memory system. It will improve the user-experience significantly.
 Therefore we added a simple example how to setup a long-term-memory conversational ai agent that uses Emotionsin.ai. Please see here: https://github.com/RegCoding/emotionsin_ai_package/tree/main/demos/simple%20long-term%20memory%20emotional%20agent
 
 # Why Emotionsin.ai
