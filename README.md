@@ -46,20 +46,23 @@ Successful companies will be those that seamlessly integrate AI into their workf
 AI that can recognize and respond to human emotions can build trust, improve teamwork, and enhance interactions with employees, customers, and suppliers alike.
 This isn’t just about making AI more relatable—it’s about creating a competitive advantage.
 
+[!TIP]
+We highly recommend to use Emotionsin.ai in combination with Langchain long-term memory (https://langchain-ai.github.io/langmem/) or any other kind of long-term memory system. It will improve the user-experience significantly.
+Therefore we added a simple example how to setup a long-term-memory conversational ai agent that uses Emotionsin.ai. Please see here: https://github.com/RegCoding/emotionsin_ai_package/tree/main/demos/simple%20long-term%20memory%20emotional%20agent
+
 # Why Emotionsin.ai
 
 Emotionsin.ai is an open-source concept of how to extend the capabilities of modern AI Agent with an internal emotional system and profile. An internal emotional system that adapts to external input, like user-communications.
 It not only give AI Agent an individual personal profile but allows thems to build unique emotional relationships to different users, as well as an own internal emotional status.
 The idea is, that an AI Agent with its own profile and internal emotional system will act and communicate more like a human, which will give room to build more intense and trusted relationships between AI Agents and their human counterparts.
 
+# Contribution
+
+We love contributions! Feel free to open issues for bugs or feature requests. We think it would be great to form a community of people who are fascinated by the idea of infusing AI with concepts like emotion and personality.
+
 # How does it work
 
 <img src="https://www.emotionsin.ai/architecture.jpg">
-
-# Recommendations
-
-We highly recommend to use Emotionsin.ai in combination with Langchain long-term memory (https://langchain-ai.github.io/langmem/) or any other kind of long-term memory system. It will improve the user-experience significantly.
-Therefore we added a simple example how to setup a long-term-memory conversational ai agent that uses Emotionsin.ai. Please see here: https://github.com/RegCoding/emotionsin_ai_package/tree/main/demos/simple%20long-term%20memory%20emotional%20agent
 
 # Psychological approach
 
