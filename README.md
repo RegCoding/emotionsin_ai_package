@@ -52,6 +52,10 @@ Emotionsin.ai is an open-source concept of how to extend the capabilities of mod
 It not only give AI Agent an individual personal profile but allows thems to build unique emotional relationships to different users, as well as an own internal emotional status.
 The idea is, that an AI Agent with its own profile and internal emotional system will act and communicate more like a human, which will give room to build more intense and trusted relationships between AI Agents and their human counterparts.
 
+# How does it work
+
+<img src="https://www.emotionsin.ai/architecture.jpg">
+
 # Recommendations
 
 We highly recommend to use Emotionsin.ai in combination with Langchain long-term memory (https://langchain-ai.github.io/langmem/) or any other kind of long-term memory system. It will improve the user-experience significantly.
