@@ -334,12 +334,9 @@ class EmotionServices:
         while True:
             user_id, prompt, answer, writing_style, text_split = self.input_queue.get()
             
-            # Extract emotional scores from the user input and update the internal emotional system.
+            # Extract emotional scores from the user input.
             user_profile = self.get_user_profile(user_id)
             scores = self.parse_input(prompt)
-            appraisal = self.evaluate_appraisal(scores)
-            self.update_emotional_state(appraisal, scores, user_id)
-
             self.processed_reflection = "-extract emotional scores from user input and update internal emotional system"
             emotion_levels = scores.get("emotion_levels", {})
             new_emotions = [{"emotion": key, "score": value} for key, value in emotion_levels.items()]
@@ -367,6 +364,11 @@ class EmotionServices:
 
             # Add the response to the send_response_queue for further processing.
             self.send_response_queue.put((user_id, response_list))
+
+            #update the emotional state of the agent based on the user input.
+            #TODO: HERE WE SHOULD TRIGGER AN INTERNAL REFLECTION MECHANISM TO UPDATE THE EMOTIONAL STATE OF THE AGENT
+            appraisal = self.evaluate_appraisal(scores)
+            self.update_emotional_state(appraisal, scores, user_id)
 
     def reflection_process(self):
         """
