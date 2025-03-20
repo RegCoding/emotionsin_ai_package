@@ -64,6 +64,14 @@ We love contributions! Feel free to open issues for bugs or feature requests. We
 
 <img src="https://www.emotionsin.ai/architecture.jpg">
 
+# Pipeline
+
+- Prepare multiple pre-configured ai agent business profiles
+- Add a custom pre-trained emotional llm (trained on a corpus of emotional dialogs)
+- Refine emotional appraisal process
+- Add a cultural background filter
+- Improve the emotion_system_prompt and the internal emotional system with better explanations of the different emotional parameters
+
 # Psychological approach
 
 From a psychological standpoint, the emotional system processing new inputs would typically engage in a multi-step cognitive appraisal process. Here’s how such a function might operate conceptually:
