@@ -4,6 +4,7 @@ import time
 import queue
 from typing import Dict, Optional, Tuple, List
 
+import os
 from dotenv import load_dotenv
 
 # Assuming BaseLLM, UserProfile, and Response are defined elsewhere in your package.
@@ -15,9 +16,31 @@ from .writing_style import WritingStyle
 from .reflection import Reflection
 from .internal_profile import InternalProfile
 
+from langchain_ollama import ChatOllama
+from langgraph.func import entrypoint
+from langgraph.store.memory import InMemoryStore
+from langmem import create_memory_store_manager
+from pydantic import BaseModel, Field
+
+
+#OPENAI_API_KEY = ""
+#os.environ["OPENAI_API_KEY"] = OPENAI_API_KEY
+#OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 class EmotionServices:
-    def __init__(self, reflecting: BaseLLM, resource_file_path: str, system_prompt_path: str):
+
+    # Set up vector store for similarity search
+    #store = InMemoryStore(
+    #    index={
+    #        "dims": 1536,
+     #       "embed": "openai:text-embedding-3-small",        }
+    #)
+
+    #@entrypoint(store=store)
+    #def add_new_messages_to_memory(self, messages: list):
+    #    self.manager.invoke({"messages": messages})
+
+    def __init__(self, resource_file_path: str, system_prompt_path: str):
         """
         Initializes the emotion service with two LLM providers and loads an overall emotion setup
         from a JSON file (if available). This new version employs two dedicated threads:
@@ -27,12 +50,33 @@ class EmotionServices:
              
           2. send_response_process: waits for a list of (string, int) tuples and generates a final response using llm_thinking.
         """
+    
+        self.llm_reflecting = ChatOllama(
+            model="llama3.1",
+            temperature=0,
+            # other params...
+        )
+
+        # Configure the memory manager as a class attribute
+        #self.manager = create_memory_store_manager(
+        #    self.llm_reflecting,
+        #    namespace=("memories", "episodes"),
+        #    schemas=[Episode],
+        #    instructions="Extract exceptional examples of noteworthy emotional problem scenarios, including what made them effective.",
+        #    enable_inserts=True,
+        #    )
+        
+        #entrypoint(store=self.store)(self.add_new_messages_to_memory)
+
         self.internal_profile = InternalProfile()
         self.internal_profile.load_from_json(resource_file_path)
 
         self.user_profiles: Dict[str, UserProfile] = {}
-        self.llm_reflecting = reflecting      # LLM used for internal reflection
+
         self.response = Response(llm=self.llm_reflecting)
+
+        self.reflection = Reflection(llm=self.llm_reflecting)
+        
 
         # Load the emotion_sytem_prompt from the corresponding json file
         self.emotion_system_prompt = ""  # Initialize the variable
@@ -59,7 +103,7 @@ class EmotionServices:
         threading.Thread(target=self.send_response_process, daemon=True).start()
         threading.Thread(target=self.process_input, daemon=True).start()  # New input processing thread
 
-    def get_prompt_extension(self, user_id):
+    def get_prompt_extension(self, user_id, prompt):
         """
         Returns a prompt extension that includes the current emotional state and profile of the user.
         This is required to ensure that the LLM can generate responses that are emotionally appropriate.
@@ -76,8 +120,10 @@ class EmotionServices:
             Your current ethical framework:"{self.internal_profile.ethical_framework}"; 
             Your current learning behavior:"{self.internal_profile.learning_behavior}"; 
             Your current relationship building:"{self.internal_profile.relationship_building}".
-            Your emotions about the user you are just talking to:"{self.get_user_profile(user_id).get_emotional_profile()}".     
+            Your emotions about the user you are just talking to:"{self.get_user_profile(user_id).get_emotional_profile()}".  
+            A general psychological guideline how to deal with this user:"{self.get_user_profile(user_id).get_guideline()}".
         """ 
+    
     def get_new_response(self):
         """
         Checks for a new response from the emotion service.
@@ -157,12 +203,12 @@ class EmotionServices:
             {user_input}
             """
         # Send the prompt to the LLM and capture its response.
-        response = self.llm_reflecting.send_prompt(prompt)
-        #print(f"LLM response: {response}")
+        response = self.llm_reflecting.invoke(prompt)
+        #print(f"#################################LLM response: {response}")
 
         # Attempt to convert the response to a Python dictionary.
         try:
-            result = json.loads(response)
+            result = json.loads(response.content)
         except Exception as e:
             print("Error parsing JSON:", e)
             result = {}
@@ -334,8 +380,13 @@ class EmotionServices:
         while True:
             user_id, prompt, answer, writing_style, text_split = self.input_queue.get()
             
-            # Extract emotional scores from the user input.
+            # Retrieve the user's profile.
             user_profile = self.get_user_profile(user_id)
+
+            # Initiate the reflection process.
+            self.reflection_queue.put((user_id))
+
+            # Extract emotional scores from the user input.
             scores = self.parse_input(prompt)
             self.processed_reflection = "-extract emotional scores from user input and update internal emotional system"
             emotion_levels = scores.get("emotion_levels", {})
@@ -379,15 +430,17 @@ class EmotionServices:
         """
         while True:
             # Wait until a reflection tuple is available.
-            user_id, response, delay = self.reflection_queue.get()  # blocking call; expects a tuple (user_id, text, delay)
+            #user_id, response, delay = self.reflection_queue.get()  # blocking call; expects a tuple (user_id, text, delay)
+            user_id = self.reflection_queue.get()
             # Wait for the specified delay (convert milliseconds to seconds).
-            time.sleep(delay / 1000.0)
+            #time.sleep(delay / 1000.0)
             # Set the new response.
-            self.new_response = response
+            #self.new_response = response
             # Retrieve the user's profile and update conversation history.
             user_profile = self.get_user_profile(user_id)
-            user_profile.add_message("You", self.new_response)
-            print(f"[reflection_process] Sent reflection to user {user_id}: {response}")
+            guideline = self.reflection.generate_emotional_guideline(user_profile,5)
+
+            #print(f"[reflection_process] Sent reflection to user {user_id}: {guideline}")
 
     def send_response_process(self):
         """
@@ -406,23 +459,23 @@ class EmotionServices:
             # Wait until a tuple (user_id, list_of_tuples) is available.
             user_id, tuples_list = self.send_response_queue.get()  # blocking call
             backup_responses = tuples_list
-            print(f"[send_response_process] Received tuples list for user {user_id}: {tuples_list}")
-            user_profile = self.get_user_profile(user_id)
+            #print(f"[send_response_process] Received tuples list for user {user_id}: {tuples_list}")
             
             # Process each tuple one-by-one.
             while tuples_list:
                 text, delay = tuples_list.pop(0)  # Remove the first tuple.
                 self.new_response = text
                 
+                user_profile = self.get_user_profile(user_id)
                 # Update the user's conversation history.
                 user_profile.add_message("You", self.new_response)
 
-                print(f"[send_response_process] Processing tuple for user {user_id}: text='{text}', delay={delay}")
+                #print(f"[send_response_process] Processing tuple for user {user_id}: text='{text}', delay={delay}")
                 time.sleep(delay / 200)
 
-            print("START REFLECTION PROCESS.........")
+            #print("START REFLECTION PROCESS.........")
             #Initiate the reflection process
-            reflection = Reflection(self.llm_reflecting)
+            
             #print(self.emotion_setup.get("emotional_parameters"))
             #json_emotional_parameters = reflection.self_reflection(self.emotion_setup.get("emotional_parameters"), user_profile, backup_responses)
             #self.set_self_emotions(json_emotional_parameters)
@@ -433,6 +486,6 @@ class EmotionServices:
             #self.emotion_setup["emotional_parameters"] = json_emotional_parameters
             #print("SELF EMOTIONS UPDATED")
 
-            reflection_response = reflection.set_reminder(user_id, user_profile, tuples_list)
-            self.reflection_queue.put((user_id, *reflection_response))
-            self.processed_reflection = "-set reminder for future user interaction"
+            #reflection_response = self.reflection.set_reminder(user_id, user_profile, tuples_list)
+            #self.reflection_queue.put((user_id, *reflection_response))
+            #self.processed_reflection = "-set reminder for future user interaction"

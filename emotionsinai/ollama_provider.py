@@ -1,4 +1,4 @@
-import ollama
+from langchain_ollama import ChatOllama
 from typing import Union, List, Dict
 
 from emotionsinai import BaseLLM
@@ -20,6 +20,6 @@ class OllamaProvider(BaseLLM):
         else:
             formatted_prompt = prompt
         
-        response = ollama.chat(model=self.model_name, messages=[{"role": "user", "content": formatted_prompt}])
+        response = ChatOllama.invoke(model=self.model_name, messages=[{"role": "user", "content": formatted_prompt}])
 
         return response.get("message", {}).get("content", "")

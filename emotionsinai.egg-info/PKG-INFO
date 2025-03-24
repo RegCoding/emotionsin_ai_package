@@ -1,4 +1,4 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: emotionsinai
 Version: 0.1.0
 Summary: At Emotionsin.ai, we believe that effective collaboration between AI Agents and humans goes beyond technical expertise. Human interaction is built on social, emotional, and cultural foundations. By enhancing AI Agents with advanced emotional, social, and cultural understanding, we aim to create technology that integrates seamlessly into human contexts, delivering more personal, empathic, and impactful results.
@@ -7,6 +7,7 @@ Keywords: aiagents,llm,emotions,empathy
 Classifier: Programming Language :: Python :: 3
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Dynamic: license-file
 
 # Quick Start
 
@@ -73,6 +74,14 @@ We love contributions! Feel free to open issues for bugs or feature requests. We
 # How does it work
 
 <img src="https://www.emotionsin.ai/architecture.jpg">
+
+# Pipeline
+
+- Prepare multiple pre-configured ai agent business profiles
+- Add a custom pre-trained emotional llm (trained on a corpus of emotional dialogs)
+- Refine emotional appraisal process
+- Add a cultural background filter
+- Improve the emotion_system_prompt and the internal emotional system with better explanations of the different emotional parameters
 
 # Psychological approach
 

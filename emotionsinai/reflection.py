@@ -1,68 +1,60 @@
 from typing import List, Dict, Optional, Tuple
 import json
-
-from .base_llm import BaseLLM
 from .user_profile import UserProfile
+from dotenv import load_dotenv
+from langchain_ollama import ChatOllama
 
 class Reflection:
-    def __init__(self, llm: BaseLLM):
+
+    def __init__(self, llm: ChatOllama):
         """
-        Initializes the Reflection instance with a LLM model and a dictionary of user profiles.
+        Initializes the Reflection instance with an LLM model.
         """
         self.llm = llm
 
-import json
-import re
-from typing import List, Tuple
-
-class Reflection:
-    def __init__(self, llm):
-        self.llm = llm
-
-    def self_reflection(self, self_emotions: dict, user_profile, response_list: List[Tuple[str, int]]) -> dict:
+    def generate_emotional_guideline(self, user_profil: UserProfile, num_messages: int = 20) -> str:
         """
-        Reflects on recent interactions and updates self-emotions accordingly.
+        Analyzes the user's recent conversation history and emotional profile to generate a
+        short, psychologically informed guideline for how the AI should interact with the user
+        on an emotional level.
 
-        Ensures that only a valid JSON structure is returned.
+        The output is a 1–2 sentence string focused solely on emotional and psychological handling.
+
+        Args:
+            llm: An instance of an LLM interface with a `.send_prompt()` method.
+            num_messages: How many recent messages to analyze (default: 20).
+        
+        Returns:
+            A concise emotional interaction guideline string.
         """
-        try:
-            conversation_history = user_profile.get_conversation_history(10)
-            emotional_profile = user_profile.get_emotional_profile()
+        import json
 
-            prompt = (
-                "You are an advanced AI model that updates its emotional profile based on interactions. "
-                "Analyze the AI's current self-emotions, user emotional profile, and conversation history. "
-                "Return ONLY the updated self_emotions in JSON format and NOTHING else.\n\n"
-                "Current AI self_emotions:\n{self_emotions}\n\n"
-                "User Emotional Profile:\n{emotional_profile}\n\n"
-                "Recent Conversation History:\n{conversation_history}\n\n"
-                "Response List (AI responses and user reactions):\n{response_list}\n\n"
-                "IMPORTANT: Return ONLY a valid JSON object with updated self_emotions. No explanations, no text, just JSON."
-            ).format(
-                self_emotions=json.dumps(self_emotions, indent=2),
-                emotional_profile=json.dumps(emotional_profile, indent=2),
-                conversation_history=json.dumps(conversation_history, indent=2),
-                response_list=json.dumps(response_list, indent=2)
-            )
+        # Gather relevant context
+        conversation_history = user_profil.get_conversation_history(num_messages)
 
-            # Get response from LLM
-            print(f"REFLECTION PROMPT:\n{prompt}")
-            llm_output = self.llm.send_prompt([{"role": "system", "content": prompt}])
-            print(f"[Reflection] LLM output:\n{llm_output}")
+        prompt = (
+            "You are a psychological assistant embedded in an AI system. "
+            "Your task is to analyze a user's recent conversation history and emotional profile "
+            "in order to generate a brief 1–2 sentence guideline for how the AI should respond to this user "
+            "in an emotionally intelligent and psychologically safe way.\n\n"
+            "Focus only on emotional and psychological best practices based on the user's behavior. "
+            "This is NOT about topic content, only about *how* to relate to the user emotionally.\n\n"
+            "Recent Conversation History (last few interactions):\n"
+            f"{json.dumps(conversation_history, indent=2)}\n\n"
+            "Please return ONLY the guideline string. No preamble, no formatting, no JSON. Just the raw guideline text."
+        )
 
-            # Extract only JSON using regex (handles cases where LLM returns text before/after JSON)
-            json_match = re.search(r"\{.*\}", llm_output, re.DOTALL)
-            if json_match:
-                json_cleaned = json_match.group(0)  # Extract only the JSON part
-                updated_emotions = json.loads(json_cleaned)
-                return updated_emotions
+        # Send to LLM and return result
+        #print("REFLECTION PROMPT SENT TO LLM:\n", prompt)
+        response = self.llm.invoke(prompt)
+        #print("REFLECTION RESPONSE RECEIVED FROM LLM:\n", response.content)
+        guideline = response.content
 
-            print("[Reflection] Error: LLM response did not contain valid JSON")
-            return self_emotions  # Return original emotions if no valid JSON is found
+        #print("###########REFLECTION GUIDELINE GENERATED:", guideline)
 
-        except Exception as e:
-            print(f"[Reflection] Unexpected Error: {e}")
-            return self_emotions  # Return existing emotions to prevent crashing
+        # Update internal guideline
+        user_profil.set_guideline(guideline.strip())
+        return guideline.strip()
 
 
     def set_reminder(self, user_id: str, user_profile: UserProfile, response_list: List[Tuple[str, int]]) -> Tuple[str, int]:
@@ -106,10 +98,10 @@ class Reflection:
             last_ai_response=last_ai_response
         )
 
-        print(f"REFLECTION PROMPT:{prompt}")
+        #print(f"REFLECTION PROMPT:{prompt}")
         # Use the LLM to get its evaluation.
-        llm_output = self.llm.send_prompt([{"role": "system", "content": prompt}])
-        print(f"[Reflection] LLM output: {llm_output}")
+        llm_output = self.llm.invoke([{"role": "system", "content": prompt}])
+        #print(f"[Reflection] LLM output: {llm_output}")
 
         # Parse the JSON output.
         try:

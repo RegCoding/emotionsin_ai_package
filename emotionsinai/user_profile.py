@@ -12,6 +12,21 @@ class UserProfile:
         self.rolling_averages: Dict[str, float] = {}
         self.message_history: List[Dict[str, float]] = []
         self.conversations: List[Dict[str, Optional[str]]] = []
+        self.guideline: str = ""    #this is a string to summarize key best practices how to best handle the specific user profile emotionally
+
+
+    def get_guideline(self) -> str:
+        """
+        Returns the guideline for the user profile.
+        """
+        return self.guideline
+    
+    def set_guideline(self, guideline: str):
+        """
+        Set the guideline for the user profile.
+        """
+        self.guideline = guideline
+
 
     def add_message(self, role: str, content: str, emotions: Optional[List[Dict[str, float]]] = None):
         """
@@ -24,7 +39,7 @@ class UserProfile:
             "emotions": emotions
         }
 
-        print(f"Adding message: {message_entry}")
+        #print(f"Adding message: {message_entry}")
         self.conversations.append(message_entry)
 
         if emotions:

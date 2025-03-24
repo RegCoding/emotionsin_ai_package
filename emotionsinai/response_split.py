@@ -37,7 +37,7 @@ class Response_Split:
 
         # Call the LLM with the constructed prompt
         llm_output = self.llm.send_prompt([{"role": "system", "content": response_split_prompt}])
-        print(f"[return_response_split] LLM output: {llm_output}")
+        #print(f"[return_response_split] LLM output: {llm_output}")
 
         # Attempt to parse the JSON output and convert it to a list of (text, delay) tuples.
         try:
