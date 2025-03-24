@@ -21,9 +21,10 @@ self.emotion_service = EmotionServices(
   system_prompt_path="emotion_system_prompt.json" #the emotion_system_prompt how your prompts will be extended by the required profil information
 )
 
-# Give your ai agent to the internal emotional system
+# Give your ai agent access to the internal emotional system
 emotion_prompt_extension = self.emotion_service.get_prompt_extension(self.user_id)    #get the prompt extension that includes the profile
 messages = [{"role": "user", "content": f"{prompt} {emotion_prompt_extension}"}]  #extend the ai agent prompt with these profile information before processing
+#Process the message with the llm of your choice
 
 # Process the ai agent response to start the internal reflection process, update the internal emotional profile and to adapt the answer to the writing style of the user (OPTIONAL) and a more natural split of the answer (OPTIONAL)
 self.emotion_service.add_input(self.user_id, prompt, llm_answer, False, False)
