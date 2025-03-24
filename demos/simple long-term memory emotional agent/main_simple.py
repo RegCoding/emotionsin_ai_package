@@ -47,12 +47,14 @@ class SimpleAIAgent:
         return [{"role": "system", "content": system_msg}, *state["messages"]]
 
     def process_input(self, user_input):
-        emotion_prompt_extension = self.emotion_service.get_prompt_extension(self.user_id)
-        messages = [{"role": "user", "content": f"{user_input} {emotion_prompt_extension}"}]
+        messages = [{"role": "user", "content": f"{user_input}"}]
+        emotion_prompt_extension = self.emotion_service.get_prompt_extension(self.user_id, messages)
+        messages_extension = [{"role": "user", "content": f"{user_input} {emotion_prompt_extension}"}]
 
         try:
-            augmented_messages = self.manager.invoke({"messages": messages})
+            augmented_messages = self.manager.invoke({"messages": messages_extension})
             thinking_answer = augmented_messages["messages"][-1].content
+            messages.append({"role": "system", "content": thinking_answer})
 
             self.emotion_service.add_input(self.user_id, user_input, thinking_answer, False, False)
         except Exception as e:
