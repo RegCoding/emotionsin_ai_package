@@ -15,9 +15,8 @@ class SimpleAIAgent:
         self.OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
         
         # Initialize EmotionServices
-        self.reflection_llm = OllamaProvider(model_name="llama3.1")
+        #self.reflection_llm = OllamaProvider(model_name="llama3.1")
         self.emotion_service = EmotionServices(
-            reflecting=self.reflection_llm,
             resource_file_path="resources.json",
             system_prompt_path="emotion_system_prompt.json"
         )
