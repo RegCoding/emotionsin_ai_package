@@ -12,28 +12,21 @@ pip install emotionsinai
 from emotionsinai import OllamaProvider, EmotionServices
 
 
-# Decide which LLM provider you prefer. You can simply add your own provider here by using a derivative of BaseLLM.
-# For this example we use an onPrem llama3.1 ollama installation to minimize inference costs of the emotional system.
-self.reflection_llm = OllamaProvider(model_name="llama3.1")
-# As alternative I already added an OpenAI derivative class from BaseLLM - see example here:
-self.reflection_llm = OpenAIProvider(model_name="gpt-4", temperature=0.7, openai_key=OPENAI_API_KEY)
-
 # Specific a unique user_id for your ai_agent
 self.user_id = "user321"
 
 # Initiate the EmotionService with the chosen conversation_repo and llm provider
 self.emotion_service = EmotionServices(
-  reflecting=self.reflection_llm, #reference to the llm to be used by the emotional system (see initialization above)
   resource_file_path="resources.json", #initial emotional and personal profile setup of your agent
   system_prompt_path="emotion_system_prompt.json" #the emotion_system_prompt how your prompts will be extended by the required profil information
 )
 
 # Give your ai agent to the internal emotional system
 emotion_prompt_extension = self.emotion_service.get_prompt_extension(self.user_id)    #get the prompt extension that includes the profile
-messages = [{"role": "user", "content": f"{user_input} {emotion_prompt_extension}"}]  #extend the ai agent prompt with these profile information before processing
+messages = [{"role": "user", "content": f"{prompt} {emotion_prompt_extension}"}]  #extend the ai agent prompt with these profile information before processing
 
-# Process the ai agent response to update the internal emotional profile and to adapt the answer to the writing style of the user (OPTIONAL) and a more natural split of the answer (OPTIONAL)
-self.emotion_service.add_input(self.user_id, user_input, answer, False, False)
+# Process the ai agent response to start the internal reflection process, update the internal emotional profile and to adapt the answer to the writing style of the user (OPTIONAL) and a more natural split of the answer (OPTIONAL)
+self.emotion_service.add_input(self.user_id, prompt, llm_answer, False, False)
 
 # Get the post-processed response as final answer to the user
 new_response = self.emotion_service.get_new_response()
